@@ -19,8 +19,9 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v3
-#        with:
+        with:
 #          ref: docker
+          submodules: true
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
