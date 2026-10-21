@@ -109,7 +109,7 @@ for action in stats url-stats; do
   python3 - "$TMP/$action.json" <<'PY'
 import json,sys
 x=json.load(open(sys.argv[1]))
-assert x['statusCode']==200, x
+assert int(x['statusCode'])==200, x
 if 'link' in x: assert int(x['link']['clicks'])==2, x
 PY
 done

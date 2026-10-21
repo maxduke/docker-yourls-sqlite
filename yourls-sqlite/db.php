@@ -11,7 +11,16 @@ class CustomYDB extends \YOURLS\Database\YDB {
   public function connect_to_DB() {
     // Aura SQL 5 uses lazyConnect(); connect() is a static factory.
     try {
-      $this->lazyConnect();
+      if (class_exists(\Pdo\Sqlite::class)) {
+        // Aura SQL's bundled lazyConnect() constructs base PDO even on PHP
+        // 8.5. Use the native subclass so its non-deprecated API is available.
+        [$dsn, $user, $password, $options] = $this->args;
+        $this->pdo = new \Pdo\Sqlite($dsn, $user, $password, $options);
+        $this->pdo->createFunction('RAND', static fn() => mt_rand() / mt_getrandmax(), 0);
+      } else {
+        $this->lazyConnect();
+        $this->pdo->sqliteCreateFunction('RAND', static fn() => mt_rand() / mt_getrandmax(), 0);
+      }
     } catch (\Exception $e) {
       $this->dead_or_error($e);
     }
@@ -63,8 +72,6 @@ function yourls_db_sqlite_connect() {
     foreach ($attributes as $attribute => $value) {
         $ydb->setAttribute($attribute, $value);
     }
-    // Supported core random stats query, without rewriting arbitrary SQL text.
-    $ydb->sqliteCreateFunction('RAND', static fn() => mt_rand() / mt_getrandmax(), 0);
 
     // Past this point, we're connected
     yourls_debug_log(sprintf('Opened database %s ', $dbname));
