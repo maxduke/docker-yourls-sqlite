@@ -63,6 +63,18 @@ response=$(curl -fsS \
   "$BASE/admin/install.php")
 
 if ! grep -q 'YOURLS Administration Page' <<< "$response"; then
+  echo "========== INSTALL RESPONSE BEGIN ==========" >&2
+  printf '%s\n' "$response" >&2
+  echo "========== INSTALL RESPONSE END ==========" >&2
+
+  echo "========== SQLITE FILES ==========" >&2
+  docker exec "$NAME" ls -lah \
+    /var/www/html/user/sqlite/ >&2 || true
+
+  echo "========== PHP MODULES ==========" >&2
+  docker exec "$NAME" php -m | grep -Ei \
+    'PDO|sqlite' >&2 || true
+
   echo "Fresh installation failed" >&2
   exit 1
 fi
