@@ -115,8 +115,21 @@ PY
 done
 
 # Private admin/search and per-link/aggregate statistics through actual HTTP.
-curl -fsS -c "$TMP/cookies" --data-urlencode username=ciadmin \
-  --data-urlencode password=ci-test-only-password "$BASE/admin/" > "$TMP/login.html"
+curl --fail-with-body -sS -c "$TMP/cookies" "$BASE/admin/" > "$TMP/login-form.html"
+nonce=$(python3 - "$TMP/login-form.html" <<'PYCODE'
+from html.parser import HTMLParser
+import sys
+class Form(HTMLParser):
+    def handle_starttag(self, tag, attrs):
+        attrs=dict(attrs)
+        if tag=='input' and attrs.get('name')=='nonce': print(attrs['value'])
+Form().feed(open(sys.argv[1]).read())
+PYCODE
+)
+[[ -n "$nonce" ]]
+curl --fail-with-body -sS -b "$TMP/cookies" -c "$TMP/cookies" \
+  --data-urlencode username=ciadmin --data-urlencode password=ci-test-only-password \
+  --data-urlencode "nonce=$nonce" "$BASE/admin/" > "$TMP/login.html"
 for path in '/admin/?search=yourls-ci-test&search_in=url' '/cismoke+' '/cismoke+all'; do
   curl -fsS -b "$TMP/cookies" "$BASE$path" > "$TMP/page.html"
   grep -q 'cismoke' "$TMP/page.html"
