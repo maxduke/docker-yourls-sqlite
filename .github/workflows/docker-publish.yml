@@ -1,56 +1,72 @@
-name: Publish Docker image
+
+name: Test and publish Docker image
 
 on:
+  pull_request:
+  push:
+    branches: [master]
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Version tag'
+        description: "Docker Hub image tag"
         required: true
-        default: 'latest'
+        type: string
+        default: "1.10.6-sqlite1"
+
+permissions:
+  contents: read
 
 jobs:
-  push_to_registries:
-    name: Push Docker image to Docker Hub
+  test:
+    name: Integration tests
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
-    
+
     steps:
-      - name: Check out the repo
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: true
-          fetch-depth: 0
-      
-      - name: Log in to Docker Hub
+          submodules: recursive
+
+      - name: Build test image
+        run: docker build --pull -t yourls-sqlite:test .
+
+      - name: Run integration tests
+        run: bash tests/smoke.sh yourls-sqlite:test
+
+  publish:
+    name: Publish multi-arch image
+    needs: test
+
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/master'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ github.actor }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-      
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: maxduke/yourls-sqlite
-          tags: |
-            type=raw,value=latest,enable=${{ github.event.inputs.image_tag == 'latest' }}
-            type=raw,value=${{ github.event.inputs.image_tag }}
-      
-      - name: Build and push Docker images
+
+      - name: Build and publish
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64,linux/arm64
+          tags: maxduke/yourls-sqlite:${{ inputs.image_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

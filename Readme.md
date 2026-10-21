@@ -1,39 +1,75 @@
-# YOURLS 1.9 with SQLite
 
-Based on [Flameborn/yourls-sqlite](https://github.com/Flameborn/yourls-sqlite).
+# YOURLS 1.10.6 with SQLite
 
-Takes the same arguments as the [official container](https://hub.docker.com/_/yourls), but ignores the ones that are unnecessary.  
-Additionally there is a `/var/www/html/user/sqlite` volume, you should either bind to the local fs, or at least name.
+A lightweight Docker image for YOURLS using SQLite.
 
-## Important notice / change (2022-02-01)
+Based on the official YOURLS Apache image and the
+SQLite driver from Flameborn/yourls-sqlite.
 
-The `YOURLS_DB_NAME` **must** be defined, and **must** be prepended with a `sqlite/` (due to simplifying and removing the custom `docker-entrypoint.sh`), otherwise the database is **not** written into the persistent volume, and data will be **lost** on restarting the container!
+## Docker image
 
-If you have updated this container, and your data seems to be lost: No worries, it's still there!  
-Prepend `sqlite/` to your existing `YOURLS_DB_NAME`, or, if you have not defined a custom `YOURLS_DB_NAME` define it as `YOURLS_DB_NAME=sqlite/yourls`.
+Docker Hub: maxduke/yourls-sqlite
 
-## Notes for installation
+## Docker Compose
 
-The folder bound to this container must be owned by the user 33, otherwise it will not be able to write a SQLite db into it. This can be accomplished by doing a
+```yaml
+services:
+  yourls:
+    image: maxduke/yourls-sqlite:1.10.6-sqlite1
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      YOURLS_SITE: https://short.example.com
+      YOURLS_DB_NAME: sqlite/yourls
+      YOURLS_USER: admin
+      YOURLS_PASS: ${YOURLS_PASS:?Set YOURLS_PASS}
+    volumes:
+      - yourls-data:/var/www/html/user/sqlite
 
-```
-chown -R 33:33 yourls-sqlite
-```
-
-on the folder.
-
-## Example command-line
-
-```
-docker run --name yourls-but-sqlite \
-    -e YOURLS_SITE="https://exam.pl" \
-    -e YOURLS_DB_NAME="sqlite/yourls" \
-    -e YOURLS_USER="myuser" \
-    -e YOURLS_PASS="secretpassword" \
-    -v yourls-sqlite:/var/www/html/user/sqlite \
-    -p 80:80 -d niduroki/yourls-sqlite:1.9
+volumes:
+  yourls-data:
 ```
 
----
+Set YOURLS_PASS securely in a local .env file.
 
-MIT-Licensed.
+Never commit real credentials.
+
+## Persistence
+
+Always persist:
+
+/var/www/html/user/sqlite
+
+Use YOURLS_DB_NAME=sqlite/yourls to ensure that the
+database is stored in the persistent volume.
+
+## Ports
+
+The official YOURLS Apache image listens on port 8080.
+
+## Upgrading
+
+YOURLS database upgrades are designed primarily for
+MySQL. SQLite migrations require separate verification.
+
+See docs/UPGRADING.md.
+
+## Testing
+
+Build:
+
+    docker build -t yourls-sqlite:test .
+
+Test:
+
+    bash tests/smoke.sh yourls-sqlite:test
+
+## Compatibility
+
+- YOURLS: 1.10.6
+- PHP: supplied by the pinned YOURLS base image
+- SQLite driver: Flameborn/yourls-sqlite (pinned submodule)
+
+SQLite is a community integration, not an officially
+supported YOURLS database backend.
