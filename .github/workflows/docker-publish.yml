@@ -30,7 +30,8 @@ jobs:
         run: docker build --pull -t yourls-sqlite:test .
 
       - name: Verify PHP 8.5 runtime
-        run: docker run --rm --entrypoint php yourls-sqlite:test -r 'echo PHP_VERSION, PHP_EOL; exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 5 ? 0 : 1);'
+        run: |
+          docker run --rm --entrypoint php yourls-sqlite:test -r 'echo PHP_VERSION, PHP_EOL; exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 5 ? 0 : 1);'
 
       - name: Run integration tests
         run: |
