@@ -11,7 +11,7 @@ on:
         description: "Docker Hub image tag"
         required: true
         type: string
-        default: "1.10.6-sqlite1"
+        default: "1.10.6-sqlite2"
 
 permissions:
   contents: read
@@ -20,18 +20,28 @@ jobs:
   test:
     name: Integration tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Build test image
         run: docker build --pull -t yourls-sqlite:test .
 
+      - name: Verify PHP 8.5 runtime
+        run: |
+          docker run --rm --entrypoint php yourls-sqlite:test -r 'echo PHP_VERSION, PHP_EOL; exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 5 ? 0 : 1);'
+
       - name: Run integration tests
-        run: bash tests/smoke.sh yourls-sqlite:test
+        run: |
+          bash tests/smoke.sh yourls-sqlite:test
+          SMOKE_PREFIX=custom_ bash tests/smoke.sh yourls-sqlite:test
+          SMOKE_LEGACY=506 bash tests/smoke.sh yourls-sqlite:test
+          SMOKE_LEGACY=507 SMOKE_PREFIX=legacy_ bash tests/smoke.sh yourls-sqlite:test
+
+      - name: Migration refusal and rollback tests
+        run: docker run --rm --entrypoint php -v "$PWD:/repo:ro" yourls-sqlite:test /repo/tests/migration-check.php
 
   publish:
     name: Publish multi-arch image
@@ -46,8 +56,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
